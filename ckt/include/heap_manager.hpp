@@ -22,6 +22,7 @@ class HeapManager{
  public:
   HeapManager();
   ~HeapManager();
+  
   void NeMalloc(Memory_Type type, void ** addr, const size_t &size);
   void NeFree(Memory_Type type, void *addr, const size_t &size);
   int find(Memory_Type type, void *addr);

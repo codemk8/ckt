@@ -1,16 +1,16 @@
-#include <catch.hpp>
-#include "utility.h"
+#include "./catch.hpp"
+#include "ckt/include/utility.hpp"
+#include "ckt/include/cuda_config.hpp"
+#include "ckt/include/for_each.hpp"
+//#include "cuda/array.h"
 
-#include "cuda/cuda_config.h"
-#include "cuda/array.h"
-
-using namespace Ckt;
+using namespace ckt;
 
 template <class Tuple>
 static __device__ void global_for_each(int gid, Tuple &tuple) {
 }
 
-#include "cuda/for_each.hpp"
+
 
 
 __global__ void kernel(int N)

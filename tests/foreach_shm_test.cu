@@ -1,13 +1,14 @@
 #include <catch.hpp>
-#include "utility.h"
 
-#include "cuda/cuda_config.h"
-#include "cuda/array.h"
-#include "cuda/foreach_shm.hpp"
-#include "cuda/for_each.hpp"
-#include "cuda/cuda_intrinsic.hpp"
+#include "ckt/include/utility.hpp"
 
-using namespace Ckt;
+#include "ckt/include/cuda_config.hpp"
+//#include "ckt/include/array.h"
+#include "ckt/include/foreach_shm.hpp"
+#include "ckt/include/for_each.hpp"
+//#include "cuda/cuda_intrinsic.hpp"
+
+using namespace ckt;
 
 template <class T>
 class reduce_run_nv: public nvstd::function<void(T)> {
@@ -24,7 +25,7 @@ public:
     //    printf("here in post proc\n");
     // if (blockIdx.x == 0 & threadIdx.x < 2)
     //   printf("my reduce %d tid %d.\n", m_reduce, threadIdx.x);
-    m_reduce = Ckt::cuda::blockReduceSum(m_reduce);
+    m_reduce = ckt::cuda::blockReduceSum(m_reduce);
     if (threadIdx.x == 0)
       (thrust::get<1>(tuple))[blockIdx.x] = m_reduce;
 

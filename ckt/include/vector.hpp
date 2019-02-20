@@ -9,8 +9,8 @@
 #include <thrust/device_ptr.h>
 //#include "SegmentArrayKernel.h"
 #include <curand.h>
-#include "./utility.h"
-//#include "./heap_manager.h"
+#include "./utility.hpp"
+#include "./heap_manager.hpp"
 #define USE_SHARED_PTR 1
 #include <cstddef>
 
@@ -19,7 +19,6 @@
 
 namespace ckt {
   extern HeapManager gHeapManager;
-  #define MAX_PRINT_SIZE 32
 
   enum class ArrayType
   { 
@@ -30,16 +29,17 @@ namespace ckt {
   template <class T>
   class CktArray {
   public:
+    // light-weighted initialization, lazy-initialization
     explicit CktArray(int size = 0):
         mSize(size),
-        mCapacity(size),
+        mCapacity(0),
         hostBase(),
         dvceBase(),
         isCpuValid(false),
         isGpuValid(false),
         gpuAllocated(false),
         cpuAllocated(false),
-        isGpuArray(false),
+        isGpuArray(true),
         gpuNeedToFree(true),
         cpuNeedToFree(true)
     {
@@ -68,6 +68,7 @@ namespace ckt {
       return isGpuArray;
     }
     
+    // Init from a std vector
     explicit CktArray(const std::vector<T> &rhs)
     {
       init_state();
@@ -75,12 +76,12 @@ namespace ckt {
       cudaMemcpy(getWOGpuPtr(), rhs.data(), size()*sizeof(T), cudaMemcpyDefault);
     }
 
+    // Assign from a std vector
     void operator=(const std::vector<T> &rhs)
     {
       clean_resize(rhs.size());
       cudaMemcpy(getWOGpuPtr(), rhs.data(), size()*sizeof(T), cudaMemcpyDefault);
     }
-
 
     /* Init from raw pointers
       */
@@ -131,7 +132,7 @@ namespace ckt {
     
     void clear()
     {
-      resize(0);
+      Resize(0);
     }
 
     int size() const
@@ -170,41 +171,42 @@ namespace ckt {
       }
     }
 
-    void resize(int64_t _size) 
+    void Resize(int64_t new_size) 
     {
-#ifdef _DEBUG_
-      std::cout << "new size " << _size << " old size " << mSize << std::endl;
-#endif
-      if (_size <= mCapacity)
+      if (new_size <= mCapacity)
       {
         // free memory if resize to zero
-        if (_size == 0 && mSize > 0) {
+        if (new_size == 0 && mSize > 0) {
           destroy();
         }
-        mSize = _size;
+        mSize = new_size;
       }
       else // need to reallocate
-      {
-        if (gpuAllocated)
-        {
-            std::shared_ptr<T> newDvceBase((T*)GpuDeviceAllocator(_size*sizeof(T)), GpuDeviceDeleter);
-            if (isGpuValid)
-              {
-                cudaError_t error = cudaMemcpy(newDvcebase, dvcebase, mSize*sizeof(T), cudaMemcpyDeviceToDevice);
-                //            std::cout << "memcpy d2d size:" << mSize*sizeof(T)  << std::endl;
-                assert(error == cudaSuccess);
-              }
-            dvceBase = newDvceBase;
+      {    
+        if (!gpuAllocated && !cpuAllocated) {
+          mSize = new_size;
         }
-        if (cpuAllocated)
-        {
-            std::shared_ptr<T> newHostBase((T*)GpuHostAllocator(_size*sizeof(T)), GpuHostDeleter);
-            if (isCpuValid)
-              memcpy(newHostBase, hostBase, mSize*sizeof(T));
-            hostBase = newHostBase;            
+        else  {
+          if (gpuAllocated)
+          {
+              std::shared_ptr<T> newDvceBase((T*)GpuDeviceAllocator(new_size*sizeof(T)), GpuDeviceDeleter);
+              if (isGpuValid)
+                {
+                  cudaError_t error = cudaMemcpy(newDvceBase, dvceBase, mSize*sizeof(T), cudaMemcpyDeviceToDevice);
+                  assert(error == cudaSuccess);
+                }
+              dvceBase = newDvceBase;
+          }
+          if (cpuAllocated)
+          {
+              std::shared_ptr<T> newHostBase((T*)GpuHostAllocator(new_size*sizeof(T)), GpuHostDeleter);
+              if (isCpuValid)
+                memcpy(newHostBase, hostBase, mSize*sizeof(T));
+              hostBase = newHostBase;            
+          }
         }
-        mSize = _size;
-        mCapacity = _size;
+        mSize = new_size;
+        mCapacity = new_size;
       }
     }
 
@@ -286,7 +288,7 @@ namespace ckt {
         return hostBase[index];
       T ele; 
       allocateCpuIfNecessary();
-      cudaError_t error = cudaMemcpy(&ele, dvceBase+index, sizeof(T),cudaMemcpyDeviceToHost); 
+      cudaError_t error = cudaMemcpy(&ele, dvceBase.get()+index, sizeof(T), cudaMemcpyDeviceToHost); 
       cassert(error == cudaSuccess);
       return ele;
     }
@@ -296,27 +298,12 @@ namespace ckt {
       cassert(index < mSize);
       cassert(isCpuValid || isGpuValid);
       if (isCpuValid)
-        //          hostBase[index] = value;
         hostBase[index] = value;
       if (isGpuValid)
         {
-          //            cudaError_t error = cudaMemcpy(dvcebase+index, &value, sizeof(T), cudaMemcpyHostToDevice); 
-          cudaError_t error = cudaMemcpy(dvceBase+index, &value, sizeof(T), cudaMemcpyHostToDevice); 
+          cudaError_t error = cudaMemcpy(dvceBase.get()+index, &value, sizeof(T), cudaMemcpyHostToDevice); 
           cassert(error == cudaSuccess);
         }
-    }
-
-    // for DEBUG purpose
-    void print(const char *header=0, int print_size = MAX_PRINT_SIZE) const
-    {
-      const T *ptr = getROPtr();
-      int size = mSize > print_size? print_size: mSize;
-      if (header)
-        std::cout << header << std::endl;
-      for (int i = 0; i != size; i++)
-        std::cout << " " <<  ptr[i] ; 
-
-      std::cout << std::endl;
     }
 
     void invalidateGpu() {
@@ -436,11 +423,11 @@ namespace ckt {
     private:
     void destroy() {
       if (dvceBase && gpuNeedToFree) {
-        gHeapManager.NeFree(GPU_HEAP, dvceBase.get());
+        gHeapManager.NeFree(GPU_HEAP, dvceBase.get(), size()*sizeof(T));
         dvceBase = NULL;
       }
       if (hostBase && mCapacity > 0 && cpuNeedToFree) {
-        gHeapManager.NeFree(CPU_HEAP, hostBase, size()*sizeof(T));
+        gHeapManager.NeFree(CPU_HEAP, hostBase.get(), size()*sizeof(T));
         hostBase = NULL;	  
       }
       init_state();
@@ -453,7 +440,7 @@ namespace ckt {
       if (src.isGpuValid)
         {
           if (src.size())
-            cudaMemcpy(getWEGpuPtr(), src.getROGpuPtr(), sizeof(T)*mSize, cudaMemcpyDefault);
+            cudaMemcpy(getWOGpuPtr(), src.getROGpuPtr(), sizeof(T)*mSize, cudaMemcpyDefault);
         }
       else if (src.isCpuValid)
         {
@@ -490,7 +477,7 @@ namespace ckt {
       if (!gpuAllocated && mSize)
         {
           std::shared_ptr<T> newDvceBase((T*)GpuDeviceAllocator(mSize*sizeof(T)), GpuDeviceDeleter);
-          assert(newDvcebase != 0);
+          assert(newDvceBase != 0);
           dvceBase = newDvceBase;
           gpuAllocated = true;
         }
@@ -608,6 +595,6 @@ namespace ckt {
 
   // aliasing C++11 feature
   template <typename T> 
-  using CVector = cuda::CktArray<T>;
+  using CVector = CktArray<T>;
   //#define CVector ckt::CktArray 
 } // ckt
