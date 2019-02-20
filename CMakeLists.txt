@@ -25,16 +25,25 @@ if(NOT DEFINED CMAKE_CUDA_STANDARD)
 endif()
 
 # CUDA architecture options, choose what you want
-set(GENCODE_SM30 "-gencode=arch=compute_30,code=sm_30 ")
-set(GENCODE_SM60 "-gencode=arch=compute_60,code=sm_60 ")
+set(GENCODE_SM30 "-gencode=arch=compute_30,code=sm_30")
+set(GENCODE_SM60 "-gencode=arch=compute_60,code=sm_60")
 set(GENCODE_SM62 "-gencode=arch=compute_62,code=sm_62")
 
 #CUDA_SELECT_NVCC_ARCH_FLAGS(ARCH_FLAGS 3.0 3.5+PTX 5.2(5.0) Maxwell)
-string(APPEND CMAKE_CUDA_FLAGS ${GENCODE_SM30} ${GENCODE_SM60} ${GENCODE_SM62})
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${GENCODE_SM30}")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${GENCODE_SM60}")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} ${GENCODE_SM62}")
 
 # message(${CMAKE_CUDA_FLAGS}) # for debugging
 # Add the base directory to your include file search path
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
+
+## Add flags here
+#if ( CMAKE_COMPILER_IS_GNUCC )
+set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} --ptxas-options=-v")
+#endif()
+
 
 set(SRC_LIST
   # a list of your cpp/cu/header files, e.g. file1.cpp kernel1.cu header.h
