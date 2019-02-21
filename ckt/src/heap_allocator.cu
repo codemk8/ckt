@@ -20,7 +20,6 @@ namespace ckt {
   bool SubBin::init(size_t block_size, int num_sub_bins) {
     m_block_size = block_size;
     m_bytes_this_sub_bin = block_size * num_sub_bins;
-    m_num_sub_bins = num_sub_bins;
     char *base(nullptr);
     cudaMalloc((void**)(&base), m_bytes_this_sub_bin);
 
@@ -34,8 +33,8 @@ namespace ckt {
     printf("cudaAllocing %p block_size %ld, bin size %ld global size %f MB\n", base, block_size, m_bytes_this_sub_bin, mega);
 #endif      
     m_base.reset(base);
-    m_used.resize(m_num_sub_bins);
-    m_used_size.resize(m_num_sub_bins);
+    m_used.resize(num_sub_bins);
+    m_used_size.resize(num_sub_bins);
     m_used.assign(m_used.size(), false);
     m_used_count = 0;
     return true;
@@ -43,11 +42,7 @@ namespace ckt {
 
   void *SubBin::request(const size_t &request_size) {
     if (m_block_size < request_size) {
-      if (m_block_size > 0) 
         return nullptr;
-      // This is a flexible sub-bin
-      assert(m_num_sub_bins == 1);
-      assert(is_full());
     }
       
     if (is_full()) {

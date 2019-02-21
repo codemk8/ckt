@@ -72,7 +72,6 @@ extern  size_t g_current_alloc_bsizes;
 
 
     size_t m_block_size  = 0;
-    int m_num_sub_bins = 1;
     std::unique_ptr<char, cuda_heap_deleter<char>> m_base;
     std::vector<bool> m_used;
     std::vector<size_t> m_used_size;
