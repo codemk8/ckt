@@ -54,6 +54,27 @@ TEST_CASE( "Bin", "simple" ) {
     REQUIRE(success);
 }
 
+TEST_CASE( "Bin_anysize", "simple" ) {
+    Bin bin;
+    int num_sub_bins = 1;
+    bin.init(0, num_sub_bins);
+    
+    // Requesting a larger size than expected should return nullptr
+    auto p = bin.allocate(100);
+    REQUIRE(p != nullptr);    
+
+    // we can request more subbins now with bins
+    void *last_p = nullptr;
+    for (int req = 0; req != 20; req++){
+        last_p = bin.allocate(100);
+        REQUIRE(last_p != nullptr);
+    }
+
+    // free the last one
+    auto success = bin.free(last_p);
+    REQUIRE(success);
+}
+
 TEST_CASE("HeapAllocator", "simple") {
     HeapAllocator ha(1<<6, 1<<15, 8);
 

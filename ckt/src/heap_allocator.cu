@@ -76,8 +76,8 @@ namespace ckt {
   bool Bin::grow_sub_bin(const size_t &request_size) {
     SubBin *sub_bin = new SubBin();
     {
-      assert(request_size <= m_block_size);
-      if (!sub_bin->init(m_block_size, m_sub_bin_num))  {
+      // assert(request_size <= m_block_size);
+      if (!sub_bin->init((std::max)(m_block_size, request_size), m_sub_bin_num))  {
         delete sub_bin;
         return false;
       }
@@ -87,8 +87,12 @@ namespace ckt {
   }
   
   void *Bin::allocate(const size_t &request_size) {
-    if (request_size > m_block_size)
-      return nullptr;
+    if (request_size > m_block_size) {
+      if (m_block_size > 0)
+        return nullptr;
+      // if m_block_size == 0, this is a flexible bin for relative large allocations
+      assert(m_sub_bin_num == 1);
+    } 
 
     void *ptr(nullptr);
     // try to get an empty slot from existing bins
