@@ -1,3 +1,4 @@
+#include <iostream>
 #include "./catch.hpp"
 #include "ckt/include/heap_allocator.hpp"
 using namespace ckt;
@@ -51,4 +52,33 @@ TEST_CASE( "Bin", "simple" ) {
     // free the last one
     auto success = bin.free(last_p);
     REQUIRE(success);
+}
+
+TEST_CASE("HeapAllocator", "simple") {
+    HeapAllocator ha(1<<6, 1<<15, 8);
+
+    int index = ha.bin_index(1<<6);
+    REQUIRE(index == 0);
+    index = ha.bin_index(1<<5);
+    REQUIRE(index == 0);
+
+    index = ha.bin_index((1<<6) + 1);
+    REQUIRE(index == 1);
+
+    index = ha.bin_index((1<<15));
+    REQUIRE(index == (15-6));
+
+     index = ha.bin_index((1<<15) + 1);
+    REQUIRE(index == (15-6+1));
+}
+
+TEST_CASE("HeapAllocator_allocate", "walkthrough") {
+    HeapAllocator ha(1<<6, 1<<15, 8);
+
+    for (int r = 0; r != 100; ++r) {
+        int rsize = rand() % (1<<15);
+        auto p = ha.allocate(rsize);
+        REQUIRE(p != 0);
+    }
+    // std::this_thread::sleep_for(std::chrono::seconds(10));    
 }

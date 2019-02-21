@@ -20,8 +20,8 @@ namespace ckt {
   bool SubBin::init(size_t block_size, int num_sub_bins) {
     m_block_size = block_size;
     m_bytes_this_sub_bin = block_size * num_sub_bins;
+    m_num_sub_bins = num_sub_bins;
     char *base(nullptr);
-
     cudaMalloc((void**)(&base), m_bytes_this_sub_bin);
 
     check_cuda_error("cudaMalloc", __FILE__, __LINE__);
@@ -34,16 +34,22 @@ namespace ckt {
     printf("cudaAllocing %p block_size %ld, bin size %ld global size %f MB\n", base, block_size, m_bytes_this_sub_bin, mega);
 #endif      
     m_base.reset(base);
-    m_used.resize(num_sub_bins);
-    m_used_size.resize(num_sub_bins);
+    m_used.resize(m_num_sub_bins);
+    m_used_size.resize(m_num_sub_bins);
     m_used.assign(m_used.size(), false);
     m_used_count = 0;
     return true;
   }
 
   void *SubBin::request(const size_t &request_size) {
-    if (m_block_size < request_size) 
-      return nullptr;
+    if (m_block_size < request_size) {
+      if (m_block_size > 0) 
+        return nullptr;
+      // This is a flexible sub-bin
+      assert(m_num_sub_bins == 1);
+      assert(is_full());
+    }
+      
     if (is_full()) {
       return nullptr;
     }
@@ -92,7 +98,7 @@ namespace ckt {
     void *ptr(nullptr);
     // try to get an empty slot from existing bins
     for (auto i = m_bins.begin(); i != m_bins.end(); i++) {
-      ptr = i->get()->request(request_size);
+      ptr = (*i)->request(request_size);
       if (ptr != nullptr) 
         return ptr;
     }
@@ -106,7 +112,7 @@ namespace ckt {
   bool Bin::free(void *ptr) {
     for (auto i = m_bins.begin(); i != m_bins.end(); i++) {
       if ((*i)->remove(ptr)) {
-        if (i->get()->is_empty()) {
+        if ((*i)->is_empty()) {
           m_bins.erase(i);
         }
         return true;
@@ -121,34 +127,35 @@ namespace ckt {
     m_max_block_size(max_block_size) ,
     m_sub_bin_num(sub_bin_num)
   {
-    for (size_t bsize = m_min_block_size; bsize < m_max_block_size; bsize<<=1)
+    m_num_bins = 0;
+    for (size_t bsize = m_min_block_size; bsize <= m_max_block_size; bsize<<=1)
       {
         m_bins.push_back(Bin());
         m_bins.back().init(bsize, sub_bin_num);
+        m_num_bins++;
       }
     m_bins.push_back(Bin());
     // the last bin has variable size, for big buffers
     m_bins.back().init(0, 1);
-    assert(m_bins.size() == g_num_bins);
+    m_num_bins++;
   }
 
   void *HeapAllocator::allocate(size_t bsize)
   {
-    size_t bin_bsize(0);
-    int bin_id = bin_index(bsize, bin_bsize);
+    int bin_id = bin_index(bsize);
     assert(bin_id < (int)m_bins.size());
     void *ptr =  m_bins[bin_id].allocate(bsize);
     if (ptr == nullptr) {
-      size_t free, total;
-      cudaMemGetInfo(&free, &total);
-      check_cuda_error("cudaMemGetInfo", __FILE__, __LINE__);	
-      fprintf(stderr, "Error!!! Running out of GPU memory free %f MB, !!!!! Do defragmentating (TODO).\n",
-	      (float)free/1e6);
-      abort();
+      return ptr;
+      /*
+        size_t free, total;
+        cudaMemGetInfo(&free, &total);
+        check_cuda_error("cudaMemGetInfo", __FILE__, __LINE__);	
+        fprintf(stderr, "Error!!! Running out of GPU memory free %f MB, !!!!! Do defragmentating (TODO).\n",
+          (float)free/1e6);
+        abort();
+      */
     }
-#ifdef DEBUG_HEAP_ALLOC
-    printf("heap allocator alloc return %p for size %ld\n", ptr, bsize);
-#endif
     m_alloc_size += bsize;
     m_max_alloc_size = (std::max)(m_max_alloc_size, m_alloc_size);
     return ptr;
@@ -156,33 +163,25 @@ namespace ckt {
   
   void HeapAllocator::deallocate(void *ptr, size_t bsize)
   {
-    size_t bin_bsize(0);
-    int bin_id = bin_index(bsize, bin_bsize);
+    int bin_id = bin_index(bsize);
     assert(bin_id < (int)m_bins.size());
     m_bins[bin_id].free(ptr);
     m_alloc_size -= bsize;
   }
 
-  int HeapAllocator::bin_index(const size_t bsize, size_t &bin_bsize) 
+  int HeapAllocator::bin_index(const size_t bsize) 
   {
     if (bsize <= m_min_block_size) {
-      bin_bsize = m_min_block_size;
       return 0 ;
     }
     if (bsize > m_max_block_size) {
-      bin_bsize = 0;
       return m_num_bins - 1;
     }
-    size_t bit = m_max_block_size;
-    int bin_id = m_num_bins - 1; 
-    while ((bit & bsize) == 0) {
-      bit >>= 1;
-      --bin_id;
-    }
-    bin_bsize = bit;
-    if (bsize & (bit-1)){
-      bin_bsize <<= 1;
-      bin_id++;
+    size_t bit = m_min_block_size;
+    int bin_id = 0;
+    while (bit < bsize) {
+      bit <<= 1;
+      ++bin_id;
     }
     return bin_id;
   }

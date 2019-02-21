@@ -14,7 +14,7 @@ namespace ckt {
   {
     cudaError_t err;
     if (stream)
-        cudaStreamSynchronize(stream);
+      err = cudaStreamSynchronize(stream);
     else
       err = cudaDeviceSynchronize();
     
