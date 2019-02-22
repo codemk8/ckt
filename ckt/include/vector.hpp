@@ -157,13 +157,13 @@ namespace ckt {
         if (gpuAllocated) {
           if (dvceBase)
             gHeapManager.Free(GPU_HEAP, dvceBase);
-          gHeapManager.Malloc(GPU_HEAP, (void**)&dvceBase, _size * sizeof(T));
+          dvceBase = gHeapManager.Malloc(GPU_HEAP, _size * sizeof(T));
           isGpuValid = false;
         }
         if (cpuAllocated) {
           if (hostBase)
             gHeapManager.Free(CPU_HEAP, hostBase);
-          gHeapManager.Malloc(CPU_HEAP, (void**)&hostBase, _size * sizeof(T));
+          hostBase = gHeapManager.Malloc(CPU_HEAP, _size * sizeof(T));
           isCpuValid = false;
         }
         mSize = _size;

@@ -1,6 +1,7 @@
 #include <iostream>
 #include "./catch.hpp"
 #include "ckt/include/heap_allocator.hpp"
+#include "ckt/include/heap_manager.hpp"
 using namespace ckt;
 
 TEST_CASE( "SubBin", "simple" ) {
@@ -111,4 +112,24 @@ TEST_CASE("HeapAllocator_allocate", "walkthrough") {
     auto p = ha.allocate(1<<16);
     REQUIRE(p != 0);
     ha.deallocate(p);
+}
+
+TEST_CASE("HeapManager_allocate", "walkthrough") {
+    HeapManager hm;
+
+    std::vector<void *> ptrs;
+    for (int r = 0; r != 100; ++r) {
+        int rsize = rand() % (1<<15);
+        auto p = hm.Malloc(ckt::GPU_HEAP, rsize);
+        REQUIRE(p != 0);
+        ptrs.push_back(p);
+    }
+
+    for (auto p: ptrs) {
+        hm.Free(ckt::GPU_HEAP, p);
+    }
+
+    auto p = hm.Malloc(ckt::GPU_HEAP, 1<<16);
+    REQUIRE(p != 0);
+    hm.Free(ckt::GPU_HEAP, p);
 }

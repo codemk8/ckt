@@ -25,11 +25,12 @@ namespace ckt {
     }
   }
 
-  void HeapManager::Malloc(Memory_Type type, void **addr, const size_t &size)
+  void *HeapManager::Malloc(Memory_Type type, const size_t &size)
   {
+    void *addr; 
     if (type == CPU_HEAP)
       {
-        *addr = (void *)malloc(size);
+        addr = (void *)malloc(size);
 #ifdef _DEBUG
         mCpuMemoryTracker.insert( pair<void *, int>(*addr, size));
         curCpuUsage += size;
@@ -54,17 +55,17 @@ namespace ckt {
 #else
         HeapAllocator *allocator = get_gpu_allocator();
         assert(allocator);
-        *addr = allocator->allocate(size);
+        addr = allocator->allocate(size);
 #endif
-        if (addr == 0) {
+        if (addr == nullptr) {
           size_t free, total;
           cudaMemGetInfo(&free, &total);
           fprintf(stderr, "Failed to allocate memory size %f Kbytes, free memory %f Kbytes, total %f Kbytes.\n",
                   float(size)/1000., float(free)/1000., float(total)/1000.);
         }
       }
-    else
-      assert(0);
+    return addr;
+
   }
 
   HeapAllocator *HeapManager::get_gpu_allocator()
@@ -97,17 +98,12 @@ namespace ckt {
 
   void *GpuHostAllocator(size_t size)
   {
-    void *hostBase(0);
-
-    gHeapManager.Malloc(CPU_HEAP, (void**)&hostBase, size);
-    return hostBase;
+    return gHeapManager.Malloc(CPU_HEAP, size);
   }
 
   void *GpuDeviceAllocator(size_t size)
   {
-    void *dvceBase(0);
-    gHeapManager.Malloc(GPU_HEAP, (void**)&dvceBase, size);
-    return dvceBase;
+    return gHeapManager.Malloc(GPU_HEAP, size);
   }
 
   void GpuHostDeleter(void *ptr)

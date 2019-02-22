@@ -23,7 +23,7 @@ class HeapManager{
   HeapManager();
   ~HeapManager();
 
-  void Malloc(Memory_Type type, void ** addr, const size_t &size);
+  void *Malloc(Memory_Type type, const size_t &size);
   void Free(Memory_Type type, void *addr);
   int find(Memory_Type type, void *addr);
  private:
