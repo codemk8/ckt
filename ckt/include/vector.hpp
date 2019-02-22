@@ -31,14 +31,14 @@ namespace ckt {
   public:
     // light-weighted initialization, lazy-initialization
     explicit CktArray(int size = 0):
-        mSize(size),
-        mCapacity(0),
-        hostBase(),
-        dvceBase(),
-        isCpuValid(false),
-        isGpuValid(false),
-        gpuAllocated(false),
-        cpuAllocated(false),
+        m_size(size),
+        m_capacity(0),
+        m_host_base(),
+        m_dvce_base(),
+        m_is_cpu_valid(false),
+        m_is_gpu_valid(false),
+        m_gpu_allocated(false),
+        m_cpu_allocated(false),
         gpuNeedToFree(true),
         cpuNeedToFree(true)
     {
@@ -86,35 +86,35 @@ namespace ckt {
 
 
      bool GpuHasLatest() const {
-      return isGpuValid;
+      return m_is_gpu_valid;
     }
 
     bool CpuHasLatest() const {
-      return isCpuValid;
+      return m_is_cpu_valid;
     }
     
     // deep copy to
     void clone(CktArray<T> &dst) const
     {
       dst.clean_resize(size());
-      if (isGpuValid)
+      if (m_is_gpu_valid)
         {
-          cudaMemcpy(dst.getGpuPtr(), getROGpuPtr(), sizeof(T)*mSize, cudaMemcpyDeviceToDevice);
+          cudaMemcpy(dst.getGpuPtr(), getROGpuPtr(), sizeof(T)*m_size, cudaMemcpyDeviceToDevice);
         }
-      if (isCpuValid)
+      if (m_is_cpu_valid)
         {
-          memcpy(dst.getPtr(), getROPtr(), sizeof(T)*mSize);
+          memcpy(dst.getPtr(), getROPtr(), sizeof(T)*m_size);
         }
       
-      dst.isCpuValid = isCpuValid;
-      dst.isGpuValid = isGpuValid;
-      dst.gpuAllocated = gpuAllocated;
-      dst.cpuAllocated = cpuAllocated;
+      dst.m_is_cpu_valid = m_is_cpu_valid;
+      dst.m_is_gpu_valid = m_is_gpu_valid;
+      dst.m_gpu_allocated = m_gpu_allocated;
+      dst.m_cpu_allocated = m_cpu_allocated;
     }
 
     void alias(const CktArray<T> & dst) {
       shallow_copy(dst);
-      mCapacity = -1; // to disable calling free
+      m_capacity = -1; // to disable calling free
     }
     
     void clear()
@@ -124,7 +124,7 @@ namespace ckt {
 
     int size() const
     {
-      return mSize;
+      return m_size;
     }
     
     /*! A clean version of resize.
@@ -133,67 +133,67 @@ namespace ckt {
     */
     void clean_resize(int64_t _size) {
       /* TODO Reallocate if too waste of space */
-      if (mCapacity >= _size || _size == 0)  {
-        mSize = _size;
-        isGpuValid = false;
-        isCpuValid = false;
+      if (m_capacity >= _size || _size == 0)  {
+        m_size = _size;
+        m_is_gpu_valid = false;
+        m_is_cpu_valid = false;
         return;
       }
       if (_size > 0)  {
         // depending on previous state
-        if (gpuAllocated) {
-          if (dvceBase)
-            gHeapManager.Free(GPU_HEAP, dvceBase);
-          dvceBase = gHeapManager.Malloc(GPU_HEAP, _size * sizeof(T));
-          isGpuValid = false;
+        if (m_gpu_allocated) {
+          if (m_dvce_base)
+            gHeapManager.Free(GPU_HEAP, m_dvce_base);
+          m_dvce_base = gHeapManager.Malloc(GPU_HEAP, _size * sizeof(T));
+          m_is_gpu_valid = false;
         }
-        if (cpuAllocated) {
-          if (hostBase)
-            gHeapManager.Free(CPU_HEAP, hostBase);
-          hostBase = gHeapManager.Malloc(CPU_HEAP, _size * sizeof(T));
-          isCpuValid = false;
+        if (m_cpu_allocated) {
+          if (m_host_base)
+            gHeapManager.Free(CPU_HEAP, m_host_base);
+          m_host_base = gHeapManager.Malloc(CPU_HEAP, _size * sizeof(T));
+          m_is_cpu_valid = false;
         }
-        mSize = _size;
-        mCapacity = _size;
+        m_size = _size;
+        m_capacity = _size;
       }
     }
 
     void Resize(int64_t new_size) 
     {
-      if (new_size <= mCapacity)
+      if (new_size <= m_capacity)
       {
         // free memory if resize to zero
-        if (new_size == 0 && mSize > 0) {
+        if (new_size == 0 && m_size > 0) {
           destroy();
         }
-        mSize = new_size;
+        m_size = new_size;
       }
       else // need to reallocate
       {    
-        if (!gpuAllocated && !cpuAllocated) {
-          mSize = new_size;
+        if (!m_gpu_allocated && !m_cpu_allocated) {
+          m_size = new_size;
         }
         else  {
-          if (gpuAllocated)
+          if (m_gpu_allocated)
           {
-              std::shared_ptr<T> newDvceBase((T*)GpuDeviceAllocator(new_size*sizeof(T)), GpuDeviceDeleter);
-              if (isGpuValid)
+              std::shared_ptr<T> newm_dvce_base((T*)GpuDeviceAllocator(new_size*sizeof(T)), GpuDeviceDeleter);
+              if (m_is_gpu_valid)
                 {
-                  cudaError_t error = cudaMemcpy(newDvceBase, dvceBase, mSize*sizeof(T), cudaMemcpyDeviceToDevice);
+                  cudaError_t error = cudaMemcpy(newm_dvce_base, m_dvce_base, m_size*sizeof(T), cudaMemcpyDeviceToDevice);
                   assert(error == cudaSuccess);
                 }
-              dvceBase = newDvceBase;
+              m_dvce_base = newm_dvce_base;
           }
-          if (cpuAllocated)
+          if (m_cpu_allocated)
           {
-              std::shared_ptr<T> newHostBase((T*)GpuHostAllocator(new_size*sizeof(T)), GpuHostDeleter);
-              if (isCpuValid)
-                memcpy(newHostBase, hostBase, mSize*sizeof(T));
-              hostBase = newHostBase;            
+              std::shared_ptr<T> newm_host_base((T*)GpuHostAllocator(new_size*sizeof(T)), GpuHostDeleter);
+              if (m_is_cpu_valid)
+                memcpy(newm_host_base, m_host_base, m_size*sizeof(T));
+              m_host_base = newm_host_base;            
           }
         }
-        mSize = new_size;
-        mCapacity = new_size;
+        m_size = new_size;
+        m_capacity = new_size;
       }
     }
 
@@ -201,67 +201,67 @@ namespace ckt {
     T *getRawPtr() 
     {
       allocateCpuIfNecessary();
-      return hostBase;
+      return m_host_base;
     }
 
     /*! return the gpu pointer without changing the internal state */
     T *getRawGpuPtr() 
     {
       allocateGpuIfNecessary();
-      return dvceBase;
+      return m_dvce_base;
     }
 
 
     const T *getROPtr() const
     {
       enableCpuRead();
-      return hostBase;
+      return m_host_base;
     }
 
     T *getPtr()
     {
       enableCpuWrite();
-      return hostBase;
+      return m_host_base;
     }
 
     const T *getROGpuPtr() const
     {
       enableGpuRead();
-      return dvceBase;
+      return m_dvce_base;
     }
 
     T *getGpuPtr()
     {
       enableGpuWrite();
-      return dvceBase;
+      return m_dvce_base;
     }
 
     // get write-exclusive CPU pointer
     T *getWEPtr() {
       allocateCpuIfNecessary();
-      isCpuValid = true;
-      isGpuValid = false;
-      return hostBase;
+      m_is_cpu_valid = true;
+      m_is_gpu_valid = false;
+      return m_host_base;
     }
 
     T *getWOGpuPtr() {
       allocateGpuIfNecessary();
-      isCpuValid = false;
-      isGpuValid = true;
-      return dvceBase;
+      m_is_cpu_valid = false;
+      m_is_gpu_valid = true;
+      return m_dvce_base;
     }
 
 
     T &operator[](int index)
       {
-        assert(index < mSize);
+        assert(index < m_size);
         T *host = getPtr();
         return host[index];
       }
 
     const T &operator[](int index) const
     {
-      assert(index < mSize);
+      assert(index < m_size);
       const T *host = getROPtr();
       return host[index];
     }
@@ -269,104 +269,94 @@ namespace ckt {
     /* only dma what's needed, instead of the whole array */
     const T getElementAt(const int index) const
     {
-      assert(index < mSize);
-      assert(isCpuValid || isGpuValid);
-      if (isCpuValid)
-        return hostBase[index];
+      assert(index < m_size);
+      assert(m_is_cpu_valid || m_is_gpu_valid);
+      if (m_is_cpu_valid)
+        return m_host_base[index];
       T ele; 
       allocateCpuIfNecessary();
-      cudaError_t error = cudaMemcpy(&ele, dvceBase.get()+index, sizeof(T), cudaMemcpyDeviceToHost); 
+      cudaError_t error = cudaMemcpy(&ele, m_dvce_base.get()+index, sizeof(T), cudaMemcpyDeviceToHost); 
       cassert(error == cudaSuccess);
       return ele;
     }
 
     void setElementAt(T &value, const int index)
     {
-      cassert(index < mSize);
-      cassert(isCpuValid || isGpuValid);
-      if (isCpuValid)
-        hostBase[index] = value;
-      if (isGpuValid)
+      cassert(index < m_size);
+      cassert(m_is_cpu_valid || m_is_gpu_valid);
+      if (m_is_cpu_valid)
+        m_host_base[index] = value;
+      if (m_is_gpu_valid)
         {
-          cudaError_t error = cudaMemcpy(dvceBase.get()+index, &value, sizeof(T), cudaMemcpyHostToDevice); 
+          cudaError_t error = cudaMemcpy(m_dvce_base.get()+index, &value, sizeof(T), cudaMemcpyHostToDevice); 
           cassert(error == cudaSuccess);
         }
     }
 
     void invalidateGpu() {
-      isGpuValid = false;
+      m_is_gpu_valid = false;
     }
 
     void invalidateCpu() {
-        isCpuValid = false;
+        m_is_cpu_valid = false;
     }
 
 
     inline typename thrust::device_ptr<T> gbegin()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
     { 
       enableGpuWrite();
       return thrust::device_ptr<T>(getGpuPtr()); 
     }
 
-    /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
     inline typename thrust::device_ptr<T> gend()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
     { 
       enableGpuWrite();
-      return thrust::device_ptr<T>(getGpuPtr()+mSize);
+      return thrust::device_ptr<T>(getGpuPtr()+m_size);
     }
 
     inline typename thrust::device_ptr<T> owbegin()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
     { 
       return thrust::device_ptr<T>(getWOGpuPtr()); 
     }
 
-    /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
     inline typename thrust::device_ptr<T> owend()
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
     { 
-      return thrust::device_ptr<T>(getWOGpuPtr()+mSize);
+      return thrust::device_ptr<T>(getWOGpuPtr()+m_size);
     }
 
 
-    /*! \brief Return the iterator to the first element in the srt::vector */
     inline typename thrust::device_ptr<T> gbegin() const
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer)); }
     { 
       enableGpuRead();
       return thrust::device_ptr<T>(const_cast<T*>(getROGpuPtr()));
     }
 
-    /*! \brief Return the last iterator (the first invalid iterator) in the srt::vector */
     inline typename thrust::device_ptr<T> gend() const
-    //{ return thrust::retag<srt_thrust_tag>(thrust::device_ptr<T>(data_pointer+m_size)); }
     {
       enableGpuRead();
-      return thrust::device_ptr<T>(const_cast<T*>(getROGpuPtr()+mSize));
+      return thrust::device_ptr<T>(const_cast<T*>(getROGpuPtr()+m_size));
     }
 
     /*! explicitly sync to GPU buffer */
     void syncToGpu() const {
-      //	assert(!(isGpuValid && !isCpuValid));
+      //	assert(!(m_is_gpu_valid && !m_is_cpu_valid));
       allocateGpuIfNecessary();
       fromHostToDvce();
-      isGpuValid = true;
+      m_is_gpu_valid = true;
     }
 
     /*! explicitly sync to CPU buffer */
     void syncToCpu() const {
-      //	assert(!(isCpuValid && !isGpuValid));
+      //	assert(!(m_is_cpu_valid && !m_is_gpu_valid));
       allocateCpuIfNecessary();
       fromDvceToHost();	
-      isCpuValid = true;
+      m_is_cpu_valid = true;
     }
 
     inline void enableGpuRead() const
     {
       allocateGpuIfNecessary();
-      if (!isGpuValid)
+      if (!m_is_gpu_valid)
         {
           fromHostToDvceIfNecessary();
           setGpuAvailable();
@@ -376,46 +366,46 @@ namespace ckt {
     inline void enableGpuWrite() const
     {
       allocateGpuIfNecessary();
-      if (!isGpuValid)
+      if (!m_is_gpu_valid)
       fromHostToDvceIfNecessary();
-      isCpuValid = false;
-      isGpuValid = true;
+      m_is_cpu_valid = false;
+      m_is_gpu_valid = true;
     }
 
     inline void enableCpuRead() const
     {
       allocateCpuIfNecessary();
-      if (!isCpuValid)
+      if (!m_is_cpu_valid)
         {
           fromDvceToHostIfNecessary();
-          isCpuValid = true;
+          m_is_cpu_valid = true;
         }
     }
 
     inline void enableCpuWrite() const
     {
       allocateCpuIfNecessary();
-      if (!isCpuValid)
+      if (!m_is_cpu_valid)
         fromDvceToHostIfNecessary();
 
-      isCpuValid = true;
-      isGpuValid = false;
+      m_is_cpu_valid = true;
+      m_is_gpu_valid = false;
     }
 
     void setGpuAvailable() const {
-      isGpuValid = true;
+      m_is_gpu_valid = true;
     }
 
 
     private:
     void destroy() {
-      if (dvceBase && gpuNeedToFree) {
-        gHeapManager.Free(GPU_HEAP, dvceBase.get());
-        dvceBase = NULL;
+      if (m_dvce_base && gpuNeedToFree) {
+        gHeapManager.Free(GPU_HEAP, m_dvce_base.get());
+        m_dvce_base = NULL;
       }
-      if (hostBase && mCapacity > 0 && cpuNeedToFree) {
-        gHeapManager.Free(CPU_HEAP, hostBase.get());
-        hostBase = NULL;	  
+      if (m_host_base && m_capacity > 0 && cpuNeedToFree) {
+        gHeapManager.Free(CPU_HEAP, m_host_base.get());
+        m_host_base = NULL;	  
       }
       init_state();
     }
@@ -424,56 +414,56 @@ namespace ckt {
     void deep_copy(const CktArray<T> &src) 
     {
       clean_resize(src.size());
-      if (src.isGpuValid)
+      if (src.m_is_gpu_valid)
         {
           if (src.size())
-            cudaMemcpy(getWOGpuPtr(), src.getROGpuPtr(), sizeof(T)*mSize, cudaMemcpyDefault);
+            cudaMemcpy(getWOGpuPtr(), src.getROGpuPtr(), sizeof(T)*m_size, cudaMemcpyDefault);
         }
-      else if (src.isCpuValid)
+      else if (src.m_is_cpu_valid)
         {
           if (src.size())
-            memcpy(getPtr(), src.getROPtr(), sizeof(T)*mSize);
+            memcpy(getPtr(), src.getROPtr(), sizeof(T)*m_size);
         }
     }
     
     void init_state() {
-      mSize = 0;
-      mCapacity = 0;
-      hostBase.reset();
-      dvceBase.reset();
-      isCpuValid = false;
-      isGpuValid = false;
-      gpuAllocated = false;
-      cpuAllocated = false;
+      m_size = 0;
+      m_capacity = 0;
+      m_host_base.reset();
+      m_dvce_base.reset();
+      m_is_cpu_valid = false;
+      m_is_gpu_valid = false;
+      m_gpu_allocated = false;
+      m_cpu_allocated = false;
     }
     
     inline void allocateCpuIfNecessary()  const
     {
-      if (!cpuAllocated && mSize)
+      if (!m_cpu_allocated && m_size)
         {
-          std::shared_ptr<T> newHostBase((T*)GpuHostAllocator(mSize*sizeof(T)), GpuHostDeleter);
-          hostBase = newHostBase;
-          cpuAllocated = true;
+          std::shared_ptr<T> newm_host_base((T*)GpuHostAllocator(m_size*sizeof(T)), GpuHostDeleter);
+          m_host_base = newm_host_base;
+          m_cpu_allocated = true;
         }
     }
 
     inline void allocateGpuIfNecessary() const
     {
-      if (!gpuAllocated && mSize)
+      if (!m_gpu_allocated && m_size)
         {
-          std::shared_ptr<T> newDvceBase((T*)GpuDeviceAllocator(mSize*sizeof(T)), GpuDeviceDeleter);
-          assert(newDvceBase != 0);
-          dvceBase = newDvceBase;
-          gpuAllocated = true;
+          std::shared_ptr<T> newm_dvce_base((T*)GpuDeviceAllocator(m_size*sizeof(T)), GpuDeviceDeleter);
+          assert(newm_dvce_base != 0);
+          m_dvce_base = newm_dvce_base;
+          m_gpu_allocated = true;
         }
     }
 
 
     inline void fromHostToDvce() const {
-      if (mSize) {
-        cassert(hostBase);
-        cassert(dvceBase);
-        cudaError_t error = cudaMemcpy(dvceBase, hostBase, mSize* sizeof(T), cudaMemcpyHostToDevice);
+      if (m_size) {
+        cassert(m_host_base);
+        cassert(m_dvce_base);
+        cudaError_t error = cudaMemcpy(m_dvce_base, m_host_base, m_size* sizeof(T), cudaMemcpyHostToDevice);
         cassert(error == cudaSuccess);
       }
 
@@ -481,7 +471,7 @@ namespace ckt {
     
     inline void fromHostToDvceIfNecessary() const
     {
-      if (isCpuValid && !isGpuValid)
+      if (m_is_cpu_valid && !m_is_gpu_valid)
       {
         fromHostToDvce();
       }
@@ -489,32 +479,32 @@ namespace ckt {
 
     inline void fromDvceToHost() const
     {
-      if (mSize) {
-        cudaError_t error = cudaMemcpy(hostBase, dvceBase, mSize * sizeof(T),cudaMemcpyDeviceToHost);
+      if (m_size) {
+        cudaError_t error = cudaMemcpy(m_host_base, m_dvce_base, m_size * sizeof(T),cudaMemcpyDeviceToHost);
         cassert(error == cudaSuccess);
       }
     }
     
     inline void fromDvceToHostIfNecessary() const
     {
-      if (isGpuValid && !isCpuValid)
+      if (m_is_gpu_valid && !m_is_cpu_valid)
         {
           if (size()) {
-            cassert(dvceBase);
-            cassert(hostBase);
+            cassert(m_dvce_base);
+            cassert(m_host_base);
           }
           fromDvceToHost();
         }
     }
 
-    int64_t mSize;
-    int mCapacity;
-    std::shared_ptr<T> hostBase;
-    std::shared_ptr<T> dvceBase;
-    mutable bool isCpuValid = false;
-    mutable bool isGpuValid = false;
-    mutable bool gpuAllocated = false;
-    mutable bool cpuAllocated = false;
+    int64_t m_size;
+    int m_capacity;
+    std::shared_ptr<T> m_host_base;
+    std::shared_ptr<T> m_dvce_base;
+    mutable bool m_is_cpu_valid = false;
+    mutable bool m_is_gpu_valid = false;
+    mutable bool m_gpu_allocated = false;
+    mutable bool m_cpu_allocated = false;
     mutable bool gpuNeedToFree = true;
     mutable bool cpuNeedToFree = true;      
 
