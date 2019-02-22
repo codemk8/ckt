@@ -39,7 +39,6 @@ namespace ckt {
         isGpuValid(false),
         gpuAllocated(false),
         cpuAllocated(false),
-        isGpuArray(true),
         gpuNeedToFree(true),
         cpuNeedToFree(true)
     {
@@ -54,18 +53,6 @@ namespace ckt {
     {
       init_state();
       deep_copy(rhs);
-    }
-
-    void SetGpuArray() {
-      isGpuArray = true;
-    }
-
-    void SetCpuArray() {
-      isGpuArray = false;
-    }
-
-    bool IsGpuArray() const {
-      return isGpuArray;
     }
     
     // Init from a std vector
@@ -447,7 +434,6 @@ namespace ckt {
           if (src.size())
             memcpy(getPtr(), src.getROPtr(), sizeof(T)*mSize);
         }
-      isGpuArray = src.isGpuArray;
     }
     
     void init_state() {
@@ -459,7 +445,6 @@ namespace ckt {
       isGpuValid = false;
       gpuAllocated = false;
       cpuAllocated = false;
-      isGpuArray = false;
     }
     
     inline void allocateCpuIfNecessary()  const
@@ -530,7 +515,6 @@ namespace ckt {
     mutable bool isGpuValid = false;
     mutable bool gpuAllocated = false;
     mutable bool cpuAllocated = false;
-    mutable bool isGpuArray = false;
     mutable bool gpuNeedToFree = true;
     mutable bool cpuNeedToFree = true;      
 
