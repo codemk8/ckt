@@ -146,26 +146,21 @@ namespace ckt {
     void *ptr =  m_bins[bin_id].allocate(bsize);
     if (ptr == nullptr) {
       return ptr;
-      /*
-        size_t free, total;
-        cudaMemGetInfo(&free, &total);
-        check_cuda_error("cudaMemGetInfo", __FILE__, __LINE__);	
-        fprintf(stderr, "Error!!! Running out of GPU memory free %f MB, !!!!! Do defragmentating (TODO).\n",
-          (float)free/1e6);
-        abort();
-      */
     }
     m_alloc_size += bsize;
     m_max_alloc_size = (std::max)(m_max_alloc_size, m_alloc_size);
     return ptr;
   }
   
-  void HeapAllocator::deallocate(void *ptr, size_t bsize)
+  void HeapAllocator::deallocate(void *ptr)
   {
-    int bin_id = bin_index(bsize);
-    assert(bin_id < (int)m_bins.size());
-    m_bins[bin_id].free(ptr);
-    m_alloc_size -= bsize;
+    // Random loop
+    for (auto bin = m_bins.begin(); bin != m_bins.end(); bin++) {
+      bool freed = (*bin).free(ptr);
+      if (freed) {
+        break;
+      }
+    }
   }
 
   int HeapAllocator::bin_index(const size_t bsize) 

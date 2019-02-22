@@ -96,12 +96,19 @@ TEST_CASE("HeapAllocator", "simple") {
 TEST_CASE("HeapAllocator_allocate", "walkthrough") {
     HeapAllocator ha(1<<6, 1<<15, 8);
 
+    std::vector<void *> ptrs;
     for (int r = 0; r != 100; ++r) {
         int rsize = rand() % (1<<15);
         auto p = ha.allocate(rsize);
         REQUIRE(p != 0);
+        ptrs.push_back(p);
+    }
+
+    for (auto p: ptrs) {
+        ha.deallocate(p);
     }
 
     auto p = ha.allocate(1<<16);
     REQUIRE(p != 0);
+    ha.deallocate(p);
 }

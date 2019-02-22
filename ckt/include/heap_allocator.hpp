@@ -114,8 +114,7 @@ public:
   }
 
     void *allocate(size_t bsize);
-    /* bsize is a hint for finding the pointer faster */
-    void deallocate(void *ptr, size_t bsize = 0);
+    void deallocate(void *ptr);
 
 
   // returns the nearest bin index according the required byte size

@@ -154,7 +154,7 @@ namespace ckt {
 #ifdef USE_CUDA_ALLOCATOR
         cudaFree(addr);
 #else
-        get_gpu_allocator()->deallocate(addr, size);
+        get_gpu_allocator()->deallocate(addr);
 #endif
       }
   }
