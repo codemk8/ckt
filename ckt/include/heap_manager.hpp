@@ -22,17 +22,16 @@ class HeapManager{
  public:
   HeapManager();
   ~HeapManager();
-  
-  void NeMalloc(Memory_Type type, void ** addr, const size_t &size);
-  void NeFree(Memory_Type type, void *addr, const size_t &size);
+
+  void Malloc(Memory_Type type, void ** addr, const size_t &size);
+  void Free(Memory_Type type, void *addr);
   int find(Memory_Type type, void *addr);
  private:
   HeapAllocator *get_gpu_allocator();
   static int max_device_ids;
-  std::map <void *, int> mGpuMemoryTracker;
-  std::map <void *, int> mCpuMemoryTracker;
   // for multiple GPUs
-  std::vector<HeapAllocator *> mGpuHeapAllocators;
+  std::vector<HeapAllocator *> m_gpu_heap_allocator;
+  std::vector<size_t> m_allocatedSize;
 #ifdef _DEBUG
   int count = 0;
   int maxCpuUsage = 0;

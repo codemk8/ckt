@@ -116,7 +116,6 @@ public:
     void *allocate(size_t bsize);
     void deallocate(void *ptr);
 
-
   // returns the nearest bin index according the required byte size
     int bin_index(const size_t bsize);
 

@@ -156,14 +156,14 @@ namespace ckt {
         // depending on previous state
         if (gpuAllocated) {
           if (dvceBase)
-            gHeapManager.NeFree(GPU_HEAP, dvceBase, mCapacity*sizeof(T));
-          gHeapManager.NeMalloc(GPU_HEAP, (void**)&dvceBase, _size * sizeof(T));
+            gHeapManager.Free(GPU_HEAP, dvceBase);
+          gHeapManager.Malloc(GPU_HEAP, (void**)&dvceBase, _size * sizeof(T));
           isGpuValid = false;
         }
         if (cpuAllocated) {
           if (hostBase)
-            gHeapManager.NeFree(CPU_HEAP, hostBase, mCapacity*sizeof(T));
-          gHeapManager.NeMalloc(CPU_HEAP, (void**)&hostBase, _size * sizeof(T));
+            gHeapManager.Free(CPU_HEAP, hostBase);
+          gHeapManager.Malloc(CPU_HEAP, (void**)&hostBase, _size * sizeof(T));
           isCpuValid = false;
         }
         mSize = _size;
@@ -423,11 +423,11 @@ namespace ckt {
     private:
     void destroy() {
       if (dvceBase && gpuNeedToFree) {
-        gHeapManager.NeFree(GPU_HEAP, dvceBase.get(), size()*sizeof(T));
+        gHeapManager.Free(GPU_HEAP, dvceBase.get());
         dvceBase = NULL;
       }
       if (hostBase && mCapacity > 0 && cpuNeedToFree) {
-        gHeapManager.NeFree(CPU_HEAP, hostBase.get(), size()*sizeof(T));
+        gHeapManager.Free(CPU_HEAP, hostBase.get());
         hostBase = NULL;	  
       }
       init_state();
